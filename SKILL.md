@@ -9,3 +9,9 @@ description: 본 스킬은 Flutter 프레임워크로 앱을 개발하는 데 �
 
 - [ ] 개발자가 디자인, UI, UX, 디자인 효과, 코믹, 코믹디자인, Comic 관련 요청, 버튼, 카드, 레이아웃, 애니메이션 등 디자인적인 요청을 하면 반드시 [Comic Design 문서](./comic-design.md) 를 참고해서 코딩 생성 작업을 합니다.
 - [ ] 개발자가 상태관리, Provider 와 같은 요청을 하면 반드시 [provider.md](./provider.md) 를 참고해서 코딩 생성 작업을 합니다.
+
+
+
+## Layout
+
+- [ ] 개발자가 플러터 레이아웃, 플러터 위젯, 플러터 UI 관련 요청을 하면 반드시 [Flutter Layout 문서](./flutter-layout.md) 를 참고해서 코딩 생성 작업을 합니다.
