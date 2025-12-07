@@ -176,9 +176,28 @@ class CounterWidget extends StatelessWidget {
 }
 ```
 
+### selector 함수의 값 가공
+
+`selector`는 단순히 값을 뽑는 것 외에 **표현식(계산, 변환, 조합)** 결과를 반환할 수 있습니다.
+반환된 값이 그대로 `builder`의 두 번째 인자로 전달됩니다.
+
+```dart
+/// 문자열 조합 예시
+Selector<UserState, String>(
+  selector: (_, state) => '${state.firstName} ${state.lastName}',
+  builder: (_, fullName, __) => Text(fullName),
+)
+
+/// 컬렉션 필터링/계산 예시
+Selector<TodoState, int>(
+  selector: (_, state) => state.items.where((e) => e.done).length,
+  builder: (_, doneCount, __) => Text('완료: $doneCount'),
+)
+```
+
 ### 여러 값 선택하기
 
-Record나 Tuple을 사용합니다.
+Record를 사용하여 여러 값을 묶어 전달합니다.
 
 ```dart
 Selector<AppState, (int, String)>(
@@ -187,6 +206,54 @@ Selector<AppState, (int, String)>(
     final (count, name) = data;
     return Text('$name: $count');
   },
+)
+
+/// 조건부 UI 렌더링 예시
+Selector<AppState, (int, bool)>(
+  selector: (_, state) => (state.count, state.isLoading),
+  builder: (_, value, __) {
+    final (count, isLoading) = value;
+    return isLoading
+        ? const CircularProgressIndicator()
+        : Text('count: $count');
+  },
+)
+```
+
+### Selector 사용 시 주의사항
+
+Selector는 이전 결과와 새 결과를 `==`로 비교하여 **달라졌을 때만** builder를 재호출합니다.
+
+| 주의 항목 | 설명 | 해결 방법 |
+|----------|------|----------|
+| 순수 함수 | selector는 부작용 없이 값 계산만 수행 | side effect 코드 제거 |
+| 새 인스턴스 생성 | 내용이 같아도 `==`가 false면 리빌드 | primitive 값 반환, `==`/`hashCode` 구현 |
+| 무거운 계산 | selector는 자주 호출됨 | 모델에서 미리 계산/캐시 |
+
+```dart
+// ❌ 비권장: 매번 새 리스트 생성 → 불필요한 리빌드
+Selector<TodoState, List<Todo>>(
+  selector: (_, state) => state.items.where((e) => e.done).toList(),
+  builder: (_, doneItems, __) => Text('${doneItems.length}'),
+)
+
+// ✅ 권장: primitive 값 반환
+Selector<TodoState, int>(
+  selector: (_, state) => state.items.where((e) => e.done).length,
+  builder: (_, doneCount, __) => Text('$doneCount'),
+)
+
+// ✅ 권장: 모델에서 미리 계산된 값 사용
+class TodoState extends ChangeNotifier {
+  List<Todo> _items = [];
+
+  // 캐시된 계산 결과 제공
+  int get doneCount => _items.where((e) => e.done).length;
+}
+
+Selector<TodoState, int>(
+  selector: (_, state) => state.doneCount,  // 이미 계산된 값 사용
+  builder: (_, count, __) => Text('$count'),
 )
 ```
 
