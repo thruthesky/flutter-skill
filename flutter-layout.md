@@ -9,6 +9,7 @@ Flutter 레이아웃 및 스크롤 화면 구성을 위한 필수 가이드라�
 - [ListView for Forms](#listview-for-forms)
 - [Common Layout Patterns](#common-layout-patterns)
 - [Responsive Design](#responsive-design)
+- [CarouselView (카로셀)](#carouselview-카로셀)
 
 ---
 
@@ -389,3 +390,380 @@ SliverGrid(
 | 그리드 레이아웃 | `SliverGrid` 또는 `GridView.builder` |
 | 일반 위젯을 Sliver로 | `SliverToBoxAdapter` |
 | 고정 헤더 | `SliverPersistentHeader` |
+| 카로셀/슬라이더 | `CarouselView` 또는 `CarouselView.weighted` |
+
+---
+
+## CarouselView (카로셀)
+
+### 필수 지침
+
+> **⚠️ 중요**: Flutter에서 카로셀(슬라이더) UI를 구현할 때는 **반드시 `CarouselView`를 사용**합니다.
+> 외부 패키지(carousel_slider 등)를 사용하지 않고 Flutter 기본 제공 위젯을 활용합니다.
+
+### 개요
+
+`CarouselView`는 Material Design 3의 카로셀 위젯으로, 스크롤 가능한 아이템 목록을 표시하며 선택한 레이아웃에 따라 각 아이템의 크기가 동적으로 변경됩니다.
+
+### Material Design 3 카로셀 레이아웃 유형
+
+| 레이아웃 | 설명 | 지원 생성자 |
+|----------|------|-------------|
+| **Multi-browse** | 한 번에 대/중/소 크기 아이템 표시 | `CarouselView.weighted` |
+| **Uncontained** (기본) | 컨테이너 가장자리까지 스크롤되는 아이템 | `CarouselView` |
+| **Hero** | 하나의 큰 아이템과 작은 아이템 표시 | `CarouselView.weighted` |
+| **Full-screen** | 화면 전체를 채우는 단일 아이템 | 둘 다 지원 |
+
+### 생성자 선택 가이드
+
+| 사용 사례 | 생성자 |
+|----------|--------|
+| 균일한 크기의 아이템 | `CarouselView` |
+| 동적 크기 변경이 필요한 아이템 | `CarouselView.weighted` |
+| 전체 화면 카로셀 | 둘 다 가능 |
+
+---
+
+### 🚀 CarouselView 구현 단계
+
+카로셀을 구현할 때 다음 단계를 따릅니다:
+
+#### Step 1: CarouselController 생성
+
+```dart
+// 초기 표시할 아이템 인덱스 지정
+final controller = CarouselController(
+  initialItem: 0,  // 첫 번째 아이템부터 시작
+);
+```
+
+#### Step 2: CarouselView에 Controller 전달
+
+```dart
+CarouselView(
+  controller: controller,
+  // ...
+)
+```
+
+#### Step 3: children과 itemExtent 추가
+
+```dart
+CarouselView(
+  controller: controller,
+  itemExtent: 200.0,  // 각 아이템의 기본 크기
+  children: items,
+)
+```
+
+---
+
+### ⚠️ 중요 옵션
+
+#### shrinkExtent - Edge 아이템 크기 조절
+
+`shrinkExtent`를 사용하여 **컨테이너 가장자리(edge)에 있는 아이템의 최소 크기**를 지정합니다.
+
+```dart
+CarouselView(
+  itemExtent: 330,      // 기본 아이템 크기
+  shrinkExtent: 200,    // edge 아이템의 최소 크기
+  children: items,
+)
+```
+
+#### flexWeights - 동적 크기 비율 조절
+
+`CarouselView.weighted`의 `flexWeights`로 **각 위치의 아이템 크기 비율**을 세밀하게 조절합니다.
+
+```dart
+// edge로 갈수록 작아지는 레이아웃
+CarouselView.weighted(
+  flexWeights: const <int>[3, 3, 3, 2, 1],  // 중앙 → edge 순서
+  consumeMaxWeight: false,
+  children: items,
+)
+```
+
+#### Full-screen 레이아웃 구현 (2가지 방법)
+
+```dart
+// 방법 1: itemExtent 사용
+CarouselView(
+  scrollDirection: Axis.vertical,
+  itemExtent: double.infinity,  // 전체 화면 차지
+  children: items,
+)
+
+// 방법 2: flexWeights 사용
+CarouselView.weighted(
+  scrollDirection: Axis.vertical,
+  flexWeights: const <int>[1],  // 단일 가중치 = 전체 화면
+  children: items,
+)
+```
+
+---
+
+### CarouselView (기본 생성자)
+
+균일한 크기의 아이템을 표시하는 기본 카로셀입니다. `ListView`와 유사하게 동작합니다.
+
+#### 주요 속성
+
+| 속성 | 설명 |
+|------|------|
+| `itemExtent` | 아이템의 기본 크기 (필수) |
+| `shrinkExtent` | 압축 시 최소 허용 크기 |
+| `scrollDirection` | 스크롤 방향 (기본: `Axis.horizontal`) |
+| `itemSnapping` | 스냅 효과 활성화 |
+
+#### 기본 사용 예시
+
+```dart
+CarouselView(
+  itemExtent: 330,
+  shrinkExtent: 200,
+  children: List<Widget>.generate(20, (int index) {
+    return ColoredBox(
+      color: Colors.primaries[index % Colors.primaries.length],
+      child: Center(
+        child: Text('Item $index'),
+      ),
+    );
+  }),
+)
+```
+
+#### 전체 화면 세로 카로셀
+
+```dart
+Scaffold(
+  body: CarouselView(
+    scrollDirection: Axis.vertical,
+    itemExtent: double.infinity,
+    children: List<Widget>.generate(10, (int index) {
+      return Center(child: Text('Item $index'));
+    }),
+  ),
+)
+```
+
+---
+
+### CarouselView.weighted (동적 크기)
+
+`flexWeights`를 사용하여 각 아이템이 뷰포트에서 차지하는 비율을 동적으로 조절합니다.
+
+#### 가중치(flexWeights) 이해하기
+
+가중치는 **상대적 비율**입니다:
+
+- `[3, 2, 1]` → 첫 번째 아이템 3/6, 두 번째 2/6, 세 번째 1/6 차지
+- 스크롤 시 뒤의 아이템이 앞 아이템의 크기로 점진적 변화
+- 첫 번째 아이템이 화면을 벗어나면 이전과 동일한 레이아웃 유지
+
+#### Hero 레이아웃 (중앙 강조)
+
+```dart
+ConstrainedBox(
+  constraints: BoxConstraints(maxHeight: height / 2),
+  child: CarouselView.weighted(
+    controller: controller,
+    itemSnapping: true,
+    flexWeights: const <int>[1, 7, 1],  // 중앙 아이템 강조
+    children: images.map((image) {
+      return HeroLayoutCard(imageInfo: image);
+    }).toList(),
+  ),
+)
+```
+
+#### Multi-browse 레이아웃
+
+```dart
+// 간단한 Multi-browse
+ConstrainedBox(
+  constraints: const BoxConstraints(maxHeight: 50),
+  child: CarouselView.weighted(
+    flexWeights: const <int>[1, 2, 3, 2, 1],
+    consumeMaxWeight: false,
+    children: List<Widget>.generate(20, (int index) {
+      return ColoredBox(
+        color: Colors.primaries[index % Colors.primaries.length].withOpacity(0.8),
+        child: const SizedBox.expand(),
+      );
+    }),
+  ),
+)
+
+// 카드 형태 Multi-browse
+ConstrainedBox(
+  constraints: const BoxConstraints(maxHeight: 200),
+  child: CarouselView.weighted(
+    flexWeights: const <int>[3, 3, 3, 2, 1],
+    consumeMaxWeight: false,
+    children: cardInfoList.map((info) {
+      return ColoredBox(
+        color: info.backgroundColor,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(info.icon, color: info.color, size: 32.0),
+              Text(info.label, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      );
+    }).toList(),
+  ),
+)
+```
+
+#### 전체 화면 세로 카로셀 (weighted)
+
+```dart
+Scaffold(
+  body: CarouselView.weighted(
+    scrollDirection: Axis.vertical,
+    flexWeights: const <int>[1],  // 배열 길이 1 = 전체 화면
+    children: List<Widget>.generate(10, (int index) {
+      return Center(child: Text('Item $index'));
+    }),
+  ),
+)
+```
+
+---
+
+### CarouselController
+
+카로셀의 초기 아이템 설정 및 프로그래밍 방식 제어를 위한 컨트롤러입니다.
+
+#### 주요 속성 및 메서드
+
+| 속성/메서드 | 설명 |
+|-------------|------|
+| `initialItem` | 처음 표시될 때 최대 크기로 확장될 아이템 인덱스 |
+| `animateToItem()` | 지정 아이템으로 애니메이션 이동 (기본 300ms, ease) |
+
+#### 사용 예시
+
+```dart
+class _CarouselExampleState extends State<CarouselExample> {
+  // 초기 아이템을 1번 인덱스로 설정
+  final CarouselController controller = CarouselController(initialItem: 1);
+
+  @override
+  void dispose() {
+    controller.dispose();  // 반드시 dispose 호출
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CarouselView.weighted(
+      controller: controller,
+      itemSnapping: true,
+      flexWeights: const <int>[1, 7, 1],
+      children: items,
+    );
+  }
+
+  // 특정 아이템으로 이동
+  void goToItem(int index) {
+    controller.animateToItem(index);
+  }
+}
+```
+
+#### weighted에서의 initialItem 동작
+
+`CarouselView.weighted`에서 `flexWeights`가 `[1, 2, 3, 2, 1]`이고 `initialItem`이 4인 경우:
+- 화면에 2, 3, 4, 5, 6번 아이템이 표시됨
+- 각각 1, 2, 3, 2, 1 가중치로 배치됨
+
+---
+
+### 데스크톱/웹 동작
+
+- 마우스 드래그로 스크롤은 기본적으로 **비활성화**
+- **Shift + 마우스 휠**로 가로 스크롤 가능
+- `ScrollBehavior.pointerAxisModifiers`로 키 조합 동작 제어
+- `ScrollBehavior.dragDevices`로 드래그 가능 기기 설정
+
+---
+
+### 종합 예제
+
+```dart
+class CarouselExample extends StatefulWidget {
+  const CarouselExample({super.key});
+
+  @override
+  State<CarouselExample> createState() => _CarouselExampleState();
+}
+
+class _CarouselExampleState extends State<CarouselExample> {
+  final CarouselController controller = CarouselController(initialItem: 1);
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double height = MediaQuery.sizeOf(context).height;
+
+    return ListView(
+      children: <Widget>[
+        // Hero 레이아웃 카로셀
+        ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: height / 2),
+          child: CarouselView.weighted(
+            controller: controller,
+            itemSnapping: true,
+            flexWeights: const <int>[1, 7, 1],
+            children: images.map((image) => HeroCard(image: image)).toList(),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Multi-browse 레이아웃
+        const Padding(
+          padding: EdgeInsetsDirectional.only(top: 8.0, start: 8.0),
+          child: Text('Multi-browse layout'),
+        ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 200),
+          child: CarouselView.weighted(
+            flexWeights: const <int>[3, 3, 3, 2, 1],
+            consumeMaxWeight: false,
+            children: cards,
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Uncontained 레이아웃
+        const Padding(
+          padding: EdgeInsetsDirectional.only(top: 8.0, start: 8.0),
+          child: Text('Uncontained layout'),
+        ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 200),
+          child: CarouselView(
+            itemExtent: 330,
+            shrinkExtent: 200,
+            children: List<Widget>.generate(20, (int index) {
+              return UncontainedCard(index: index, label: 'Show $index');
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+}
+```
