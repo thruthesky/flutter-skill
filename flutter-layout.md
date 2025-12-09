@@ -10,6 +10,10 @@ Flutter 레이아웃 및 스크롤 화면 구성을 위한 필수 가이드라�
 - [Common Layout Patterns](#common-layout-patterns)
 - [Responsive Design](#responsive-design)
 - [CarouselView (카로셀)](#carouselview-카로셀)
+- [실전 예제: 자동 회전 배너 카로셀](#-실전-예제-자동-회전-배너-카로셀)
+- [Rounded Corner 적용 방법](#️-rounded-corner-적용-방법-중요)
+- [Timer 기반 자동 회전 구현](#timer-기반-자동-회전-구현)
+- [flexWeights 가중치 이해](#flexweights-가중치-이해)
 
 ---
 
@@ -766,4 +770,273 @@ class _CarouselExampleState extends State<CarouselExample> {
     );
   }
 }
+```
+
+---
+
+### 🎯 실전 예제: 자동 회전 배너 카로셀
+
+API에서 배너 데이터를 받아와 자동 회전하는 카로셀 구현 예제입니다.
+
+#### 전체 구조
+
+```dart
+import 'dart:async';
+import 'package:flutter/material.dart';
+
+class AutoRotatingBannerCarousel extends StatefulWidget {
+  const AutoRotatingBannerCarousel({super.key});
+
+  @override
+  State<AutoRotatingBannerCarousel> createState() => _AutoRotatingBannerCarouselState();
+}
+
+class _AutoRotatingBannerCarouselState extends State<AutoRotatingBannerCarousel> {
+  /// 배너 데이터 목록
+  List<BannerModel> banners = [];
+
+  /// 로딩 상태
+  bool isLoading = true;
+
+  /// 카로셀 컨트롤러 (자동 회전 제어용)
+  CarouselController? _carouselController;
+
+  /// 자동 회전 타이머
+  Timer? _autoScrollTimer;
+
+  /// 현재 표시 중인 아이템 인덱스
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBanners();
+  }
+
+  @override
+  void dispose() {
+    /// 타이머 해제 (메모리 누수 방지)
+    _autoScrollTimer?.cancel();
+    /// 컨트롤러 해제
+    _carouselController?.dispose();
+    super.dispose();
+  }
+
+  /// 배너 데이터 로드
+  Future<void> _loadBanners() async {
+    final result = await BannerApi.getBanners();
+
+    if (mounted) {
+      setState(() {
+        banners = result;
+        isLoading = false;
+
+        /// 데이터 로드 완료 후 컨트롤러 초기화 및 자동 회전 시작
+        if (banners.isNotEmpty) {
+          _carouselController = CarouselController();
+          _startAutoScroll();
+        }
+      });
+    }
+  }
+
+  /// 자동 회전 타이머 시작
+  void _startAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (banners.isEmpty || _carouselController == null) return;
+
+      /// 다음 인덱스로 이동
+      _currentIndex = _currentIndex + 1;
+
+      /// 끝에서 N개 전에 도달하면 처음으로 리셋
+      /// (flexWeights 배열 길이에 맞춰 조정)
+      if (_currentIndex >= banners.length - 3) {
+        _currentIndex = 0;
+      }
+
+      /// 애니메이션과 함께 해당 인덱스로 이동
+      _carouselController!.animateToItem(_currentIndex);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) return const SizedBox.shrink();
+    if (banners.isEmpty) return const SizedBox.shrink();
+
+    /// 화면 너비 기준으로 아이템 크기 계산
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final itemExtent = screenWidth / 4;
+
+    return SizedBox(
+      height: itemExtent,
+      child: CarouselView.weighted(
+        controller: _carouselController,
+        flexWeights: const <int>[4, 4, 4, 3],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        children: banners.map((banner) => _buildBannerItem(banner)).toList(),
+      ),
+    );
+  }
+
+  Widget _buildBannerItem(BannerModel banner) {
+    return InkWell(
+      onTap: () => _handleBannerTap(banner),
+      child: ClipRRect(
+        /// ⚠️ 중요: 이미지에 rounded corner 적용
+        borderRadius: BorderRadius.circular(8),
+        child: CachedNetworkImage(
+          imageUrl: banner.url,
+          width: double.infinity,
+          height: double.infinity,
+          /// BoxFit.cover로 컨테이너를 꽉 채워야 ClipRRect 효과 적용됨
+          fit: BoxFit.cover,
+          errorWidget: (context, url, error) => const SizedBox.shrink(),
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+### ⚠️ Rounded Corner 적용 방법 (중요)
+
+CarouselView에서 아이템에 둥근 모서리를 적용하는 **2가지 방법**이 있습니다:
+
+#### 방법 1: CarouselView의 `shape` 속성 사용
+
+```dart
+CarouselView.weighted(
+  /// CarouselView 전체 아이템에 일괄 적용
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(16),
+  ),
+  children: items,
+)
+```
+
+> **주의**: `shape`는 CarouselView가 아이템을 감싸는 컨테이너에 적용됩니다.
+
+#### 방법 2: 개별 아이템에 `ClipRRect` 사용 (권장)
+
+```dart
+/// ✅ 권장: 이미지에 직접 ClipRRect 적용
+Widget _buildBannerItem(BannerModel banner) {
+  return ClipRRect(
+    /// 원하는 radius 값 지정
+    borderRadius: BorderRadius.circular(8),
+    child: CachedNetworkImage(
+      imageUrl: banner.url,
+      width: double.infinity,
+      height: double.infinity,
+      /// ⚠️ 필수: BoxFit.cover로 설정해야 ClipRRect 효과가 보임
+      fit: BoxFit.cover,
+    ),
+  );
+}
+```
+
+#### shape 비활성화 + ClipRRect 조합
+
+```dart
+CarouselView.weighted(
+  /// shape를 직사각형으로 설정 (기본 rounded 제거)
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+  padding: const EdgeInsets.symmetric(horizontal: 4),
+  children: banners.map((banner) {
+    /// 개별 아이템에 ClipRRect로 rounded corner 적용
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(banner.url, fit: BoxFit.cover),
+    );
+  }).toList(),
+)
+```
+
+---
+
+### Timer 기반 자동 회전 구현
+
+#### 핵심 코드
+
+```dart
+class _CarouselState extends State<CarouselWidget> {
+  CarouselController? _carouselController;
+  Timer? _autoScrollTimer;
+  int _currentIndex = 0;
+
+  @override
+  void dispose() {
+    /// ⚠️ 반드시 타이머와 컨트롤러 해제
+    _autoScrollTimer?.cancel();
+    _carouselController?.dispose();
+    super.dispose();
+  }
+
+  /// 자동 회전 시작
+  void _startAutoScroll() {
+    /// 기존 타이머 취소 (중복 실행 방지)
+    _autoScrollTimer?.cancel();
+
+    /// N초마다 다음 아이템으로 이동
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (items.isEmpty || _carouselController == null) return;
+
+      _currentIndex = _currentIndex + 1;
+
+      /// 인덱스 리셋 조건 (flexWeights 길이 고려)
+      /// flexWeights: [4, 4, 4, 3] = 4개이므로 length - 3에서 리셋
+      if (_currentIndex >= items.length - 3) {
+        _currentIndex = 0;
+      }
+
+      /// 애니메이션과 함께 이동
+      _carouselController!.animateToItem(_currentIndex);
+    });
+  }
+
+  /// 데이터 로드 후 초기화
+  void _initCarousel() {
+    _carouselController = CarouselController();
+    _startAutoScroll();
+  }
+}
+```
+
+#### 인덱스 리셋 조건 설정
+
+| flexWeights 길이 | 권장 리셋 조건 | 설명 |
+|-----------------|---------------|------|
+| 3개 `[1, 7, 1]` | `length - 2` | 마지막 2개 전에 리셋 |
+| 4개 `[4, 4, 4, 3]` | `length - 3` | 마지막 3개 전에 리셋 |
+| 5개 `[3, 3, 3, 2, 1]` | `length - 4` | 마지막 4개 전에 리셋 |
+
+> **공식**: `리셋 조건 = items.length - (flexWeights.length - 1)`
+
+---
+
+### flexWeights 가중치 이해
+
+```dart
+/// 예시: 4개 아이템이 화면에 표시되는 레이아웃
+flexWeights: const <int>[4, 4, 4, 3]
+```
+
+| 위치 | 가중치 | 설명 |
+|------|--------|------|
+| 첫 번째 | 4 | 현재 보이는 첫 아이템 |
+| 두 번째 | 4 | 두 번째 아이템 |
+| 세 번째 | 4 | 세 번째 아이템 |
+| 네 번째 | 3 | 가장자리 아이템 (약간 작음) |
+
+#### 가중치 합계와 비율 계산
+
+```
+총 가중치 = 4 + 4 + 4 + 3 = 15
+첫 번째 아이템 너비 = 화면너비 × (4/15) ≈ 26.7%
+네 번째 아이템 너비 = 화면너비 × (3/15) = 20%
 ```
