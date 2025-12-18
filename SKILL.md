@@ -84,6 +84,73 @@ elevation: 0                                   // 플랫 디자인
 | [go_route.md](./go_route.md) | GoRouter 라우팅, 파라미터 전달, redirect |
 | [i18n.md](./i18n.md) | 다국어 지원, ARB 파일 관리 |
 
+## 필수 pub.dev 패키지
+
+### file_cache_flutter
+
+Flutter 애플리케이션용 파일 캐시 라이브러리로, 메모리 + 파일 이중 캐싱과 TTL(Time-To-Live) 기반 자동 만료를 지원합니다.
+
+- **pub.dev**: [file_cache_flutter](https://pub.dev/packages/file_cache_flutter)
+
+#### 주요 기능
+
+| 기능 | 설명 |
+|------|------|
+| 이중 캐싱 | 메모리와 파일 캐시 동시 활용으로 빠른 접근 |
+| TTL 지원 | 캐시 만료 시간 설정 가능 (기본값 30분) |
+| 제네릭 타입 | 모든 데이터 타입 캐싱 가능 |
+| 자동 정리 | 만료된 캐시 자동 삭제 |
+
+#### 설치
+
+```yaml
+dependencies:
+  file_cache_flutter: ^0.0.3
+```
+
+#### 사용 예제
+
+```dart
+import 'package:file_cache_flutter/file_cache_flutter.dart';
+
+// 캐시 인스턴스 생성
+final cache = FileCache<UserData>(
+  cacheName: 'user_data',           // 캐시 이름 (파일 저장 경로에 사용)
+  fromJson: UserData.fromJson,      // JSON → 객체 변환 함수
+  toJson: (data) => data.toJson(),  // 객체 → JSON 변환 함수
+  defaultTtl: Duration(minutes: 30), // 기본 TTL 설정
+);
+
+// 데이터 저장
+await cache.set('user_123', UserData(name: '홍길동', age: 25));
+
+// 데이터 조회 (만료되지 않은 경우에만 반환)
+final user = await cache.get('user_123');
+
+// 캐시 존재 여부 확인
+final exists = await cache.has('user_123');
+
+// 특정 키 삭제
+await cache.remove('user_123');
+
+// 전체 캐시 삭제
+await cache.clear();
+
+// 만료된 캐시만 정리
+await cache.cleanup();
+```
+
+#### 주요 메서드
+
+| 메서드 | 설명 |
+|--------|------|
+| `get(key)` | 캐시에서 데이터 조회 (만료 시 null 반환) |
+| `set(key, data, [ttl])` | 캐시에 데이터 저장 (선택적 TTL 지정) |
+| `has(key)` | 캐시 존재 여부 확인 |
+| `remove(key)` | 특정 키의 캐시 삭제 |
+| `clear()` | 전체 캐시 삭제 |
+| `cleanup()` | 만료된 캐시 정리 |
+
 ## Quick Reference
 
 ### Import 문
