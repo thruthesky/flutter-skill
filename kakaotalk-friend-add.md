@@ -1,123 +1,107 @@
-# 카카오톡 프로필 QR 링크로 친구 추가하기
+# 카카오톡 오픈채팅으로 연결하기
 
-Flutter 앱에서 카카오톡 프로필 QR 링크를 열어 친구 추가 기능을 구현하는 방법을 설명합니다.
+Flutter 앱에서 카카오톡 오픈채팅 링크를 열어 1:1 채팅을 시작하는 방법을 설명합니다.
 
-## 개요
+## 중요: 프로필 QR 링크 vs 1:1 오픈채팅 링크
 
-카카오톡은 프로필 QR 코드 링크를 통해 친구 추가를 할 수 있습니다. 이 링크를 `url_launcher` 패키지를 사용하여 열면 카카오톡 앱이 실행되어 친구 추가 화면으로 이동합니다.
+### ❌ 프로필 QR 링크 (권장하지 않음)
 
-## 카카오톡 프로필 QR 링크 형식
-
-카카오톡 프로필 QR 링크는 다음과 같은 형식입니다:
+카카오톡 프로필 QR 코드 링크는 다음과 같은 형식입니다:
 
 ```
-https://open.kakao.com/...
+http://qr.kakao.com/talk/XXXXX
 ```
 
-또는 카카오톡 오픈채팅 링크:
+**문제점**:
+- 프로필 QR 링크로는 **친구 추가가 제대로 작동하지 않습니다**
+- Flutter 앱에서 `launchUrl()`로 열어도 친구 추가 화면으로 이동하지 않는 경우가 많음
+- Android와 iOS 모두에서 불안정한 동작
+
+### ✅ 1:1 오픈채팅 링크 (권장)
+
+**반드시 "1:1 오픈채팅방" 링크를 사용해야 합니다**:
 
 ```
 https://open.kakao.com/o/sXXXXXX
 ```
 
-## 중요: 웹 브라우저를 통한 카카오톡 열기 (권장)
+**장점**:
+- 카카오톡이 자연스럽게 열림
+- 오픈채팅이지만 **1:1 채팅방**으로 연결됨
+- 채팅 연결 성공률이 높음
+- `launchUrl()`로 직접 열어도 잘 작동함
 
-### 문제점
+## 1:1 오픈채팅방 만드는 방법
 
-Flutter 앱에서 `launchUrl()`을 사용하여 카카오톡 프로필 QR 링크를 직접 열 경우, Android와 iOS 모두에서 **불안정한 동작**이 발생합니다:
-- 카카오톡 앱이 열리지 않는 경우
-- 앱이 열리더라도 친구 추가 화면으로 이동하지 않는 경우
-- 플랫폼별 설정(`<queries>`, `LSApplicationQueriesSchemes`)이 올바르더라도 간헐적 실패
+1. 카카오톡 앱 열기
+2. 하단 탭에서 "채팅" 선택
+3. 우측 상단 "+" 버튼 → "오픈채팅" 선택
+4. "오픈채팅방 만들기" 선택
+5. **"1:1 채팅"** 선택 (중요!)
+6. 채팅방 이름, 프로필 사진 설정
+7. 생성 후 채팅방 설정에서 **"링크 복사"**
 
-### 해결책: 웹 브라우저 중간 페이지 방식
+## Flutter 구현 (권장 방식)
 
-카카오톡 프로필 QR 링크를 직접 열지 않고, **웹 브라우저를 통해 중간 페이지**를 열어서 사용자가 클릭하여 카카오톡 앱을 열도록 합니다.
+1:1 오픈채팅 링크는 `launchUrl()`로 직접 열어도 잘 작동합니다:
 
-#### 동작 흐름
+```dart
+case ContactType.kakaotalk:
+  // 카카오톡: 1:1 오픈채팅 링크를 직접 열기
+  // 반드시 "1:1 오픈채팅방" 링크를 사용해야 함 (프로필 QR 링크는 작동하지 않음)
+  if (url != null && url!.isNotEmpty) {
+    targetUrl = url;
+  }
+  break;
+
+// ...
+
+if (targetUrl != null && targetUrl.isNotEmpty) {
+  final uri = Uri.parse(targetUrl);
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
+}
+```
+
+## Deep Link 문제 해결
+
+만약 앱에서 `philgo.com` 도메인을 deep link로 처리하고 있다면, 해당 도메인의 URL을 `launchUrl()`로 열 때 앱 자체가 URL을 처리하려고 합니다.
+
+### 해결책 1: 서브도메인 사용
+
+`philgo.com` 대신 `link.philgo.com` 같은 서브도메인 사용:
+
+```dart
+targetUrl = 'https://link.philgo.com/redirect?url=$encodedUrl';
+```
+
+### 해결책 2: 카카오톡 링크 직접 사용
+
+1:1 오픈채팅 링크(`https://open.kakao.com/...`)는 앱의 deep link에 등록되어 있지 않으므로 직접 사용 가능:
+
+```dart
+// 카카오톡 오픈채팅 링크는 직접 열기
+targetUrl = url; // https://open.kakao.com/o/sXXXXXX
+await launchUrl(Uri.parse(targetUrl), mode: LaunchMode.externalApplication);
+```
+
+---
+
+## 참고: 웹 브라우저 중간 페이지 방식 (선택사항)
+
+직접 열기가 불안정한 경우, 웹 브라우저를 통해 중간 페이지를 열 수도 있습니다:
 
 ```
 1. Flutter 앱에서 카카오톡 연락처 카드 터치
 2. 외부 웹 브라우저로 중간 페이지 열기
-   → https://philgo.com/link/kakaotalk.php?link={encodedKakaoUrl}
+   → https://link.philgo.com/link/kakaotalk.php?link={encodedKakaoUrl}
 3. 중간 페이지에서 "카카오톡 열기" 버튼 표시
 4. 사용자가 버튼 클릭
-5. 카카오톡 앱 실행 및 친구 추가 화면 이동
+5. 카카오톡 앱 실행 및 오픈채팅 연결
 ```
-
-#### Flutter 코드 (권장 방식)
-
-```dart
-case ContactType.kakaotalk:
-  // 카카오톡: 직접 launchUrl()로 열지 않고, 웹 브라우저를 통해 중간 페이지를 열어서
-  // 사용자가 클릭하여 카카오톡 앱을 열도록 함 (앱에서 직접 열기가 불안정하기 때문)
-  if (url != null && url!.isNotEmpty) {
-    // 카카오톡 프로필 QR 링크를 URL 인코딩하여 파라미터로 전달
-    final encodedUrl = Uri.encodeComponent(url!);
-    targetUrl = 'https://philgo.com/link/kakaotalk.php?link=$encodedUrl';
-  }
-  break;
-```
-
-#### 중간 페이지 (kakaotalk.php) 예제
-
-```php
-<?php
-// https://philgo.com/link/kakaotalk.php
-$link = $_GET['link'] ?? '';
-$decodedLink = urldecode($link);
-?>
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>카카오톡 친구 추가</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            background: #F7C815;
-        }
-        .btn {
-            background: #3C1E1E;
-            color: white;
-            padding: 16px 32px;
-            border-radius: 12px;
-            text-decoration: none;
-            font-size: 18px;
-            font-weight: bold;
-        }
-        .info {
-            margin-top: 16px;
-            color: #3C1E1E;
-            font-size: 14px;
-        }
-    </style>
-</head>
-<body>
-    <a class="btn" href="<?= htmlspecialchars($decodedLink) ?>">카카오톡 열기</a>
-    <p class="info">위 버튼을 터치하면 카카오톡 앱이 열립니다</p>
-</body>
-</html>
-```
-
-### 왜 이 방식이 더 안정적인가?
-
-1. **사용자 제스처 기반**: 웹 브라우저에서 사용자가 직접 링크를 클릭하면, 앱 스위칭이 더 안정적으로 동작합니다.
-2. **플랫폼 독립적**: 웹 브라우저가 카카오톡 앱을 여는 것은 각 플랫폼에서 이미 잘 테스트된 경로입니다.
-3. **설정 간소화**: Flutter 앱에서 복잡한 `<queries>` 설정 없이도 동작합니다.
-4. **디버깅 용이**: 중간 페이지에서 로그를 남기거나 폴백 처리를 할 수 있습니다.
 
 ---
 
-## Flutter 직접 구현 (참고용)
-
-> ⚠️ 아래 방식은 불안정할 수 있습니다. 위의 "웹 브라우저 중간 페이지 방식"을 권장합니다.
+## 플랫폼별 설정 (참고용)
 
 ### 1. url_launcher 패키지 설치
 
