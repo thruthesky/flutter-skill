@@ -4,6 +4,7 @@ Flutter 앱 다국어(i18n) 지원을 위한 `easy_localization` 패키지 가�
 
 ## 목차
 
+- [현재 프로젝트 적용 방식 (필수)](#현재-프로젝트-적용-방식-필수)
 - [설치 및 설정](#설치-및-설정)
 - [번역 파일 구조](#번역-파일-구조)
 - [기본 사용법](#기본-사용법)
@@ -17,6 +18,178 @@ Flutter 앱 다국어(i18n) 지원을 위한 `easy_localization` 패키지 가�
 - [iOS 설정](#ios-설정)
 - [로거 설정](#로거-설정)
 - [유틸리티](#유틸리티)
+
+---
+
+## 현재 프로젝트 적용 방식 (필수)
+
+> **본 프로젝트는 JSON 파일을 사용하지 않고, Dart Map 기반 커스텀 AssetLoader를 사용합니다.**
+> **번역 키는 한국어 원문 텍스트 자체를 사용합니다. (영어 키 사용 금지)**
+
+### 아키텍처 개요
+
+```
+lib/l10n/
+├── code_asset_loader.dart   ← 커스텀 AssetLoader (AssetLoader 구현)
+└── translations.dart        ← 번역 Map 데이터 (ko, en)
+```
+
+- **JSON/CSV/YAML 파일 불필요** — 번역 텍스트를 Dart 코드에서 직접 관리
+- **키 = 한국어 원문** — `'로그인'.tr()` 처럼 한국어 텍스트가 곧 번역 키
+- **플랫 구조** — 중첩 Map 사용하지 않음 (모든 키가 최상위)
+
+### 파일 구조
+
+#### `lib/l10n/code_asset_loader.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'translations.dart';
+
+class CodeAssetLoader extends AssetLoader {
+  const CodeAssetLoader();
+
+  @override
+  Future<Map<String, dynamic>> load(String path, Locale locale) async {
+    switch (locale.languageCode) {
+      case 'ko':
+        return Translations.ko;
+      case 'en':
+        return Translations.en;
+      default:
+        return Translations.en;
+    }
+  }
+}
+```
+
+#### `lib/l10n/translations.dart`
+
+```dart
+class Translations {
+  Translations._();
+
+  static const Map<String, dynamic> ko = {
+    // 공통
+    '로그인': '로그인',
+    '로그아웃': '로그아웃',
+
+    // 하단 네비게이션
+    '홈': '홈',
+    '게시판': '게시판',
+    '채팅': '채팅',
+
+    // 인자가 있는 번역
+    '다음 레벨까지 {}%': '다음 레벨까지 {}%',
+    '{}개': '{}개',
+    '{}개 게시물': '{}개 게시물',
+  };
+
+  static const Map<String, dynamic> en = {
+    // 공통
+    '로그인': 'Login',
+    '로그아웃': 'Logout',
+
+    // 하단 네비게이션
+    '홈': 'Home',
+    '게시판': 'Forum',
+    '채팅': 'Chat',
+
+    // 인자가 있는 번역
+    '다음 레벨까지 {}%': '{}% to next level',
+    '{}개': '{}',
+    '{}개 게시물': '{} posts',
+  };
+}
+```
+
+### main.dart 설정
+
+```dart
+import 'package:easy_localization/easy_localization.dart';
+import 'package:philgo/l10n/code_asset_loader.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await EasyLocalization.ensureInitialized();
+
+  runApp(
+    EasyLocalization(
+      supportedLocales: const [Locale('ko'), Locale('en')],
+      path: 'unused',  // CodeAssetLoader에서 path를 사용하지 않지만 필수 파라미터
+      assetLoader: const CodeAssetLoader(),
+      fallbackLocale: const Locale('ko'),
+      child: MultiProvider(
+        providers: [...],
+        child: const MyApp(),
+      ),
+    ),
+  );
+}
+```
+
+```dart
+// MaterialApp에 localization 연결
+MaterialApp.router(
+  localizationsDelegates: context.localizationDelegates,
+  supportedLocales: context.supportedLocales,
+  locale: context.locale,
+  routerConfig: router,
+)
+```
+
+### 위젯에서 사용
+
+```dart
+import 'package:easy_localization/easy_localization.dart';
+
+// 기본 번역 — 한국어 원문이 곧 키
+Text('로그인'.tr())
+Text('로그아웃'.tr())
+Text('홈'.tr())
+
+// 인자가 있는 번역
+Text('다음 레벨까지 {}%'.tr(args: ['${user.levelProgress}']))
+Text('{}개'.tr(args: ['${user.noOfPost}']))
+Text('{}개 게시물'.tr(args: ['${user.noOfPost}']))
+
+// 조건부 번역
+Text(user.gender == 'M' ? '남성'.tr() : '여성'.tr())
+```
+
+### 새 번역 추가 방법
+
+1. `lib/l10n/translations.dart`의 `ko` Map과 `en` Map에 동일한 한국어 키를 추가
+2. `ko` Map에는 한국어 값, `en` Map에는 영어 값 설정
+3. 위젯에서 `'한국어키'.tr()` 호출
+
+```dart
+// 1. translations.dart에 추가
+static const Map<String, dynamic> ko = {
+  '새 번역': '새 번역',
+  '{}님 환영합니다': '{}님 환영합니다',
+};
+static const Map<String, dynamic> en = {
+  '새 번역': 'New Translation',
+  '{}님 환영합니다': 'Welcome, {}',
+};
+
+// 2. 위젯에서 사용
+Text('새 번역'.tr())
+Text('{}님 환영합니다'.tr(args: [userName]))
+```
+
+### 핵심 규칙
+
+| 규칙 | 설명 |
+|------|------|
+| 키는 한국어 | `'login'.tr()` (X) → `'로그인'.tr()` (O) |
+| 플랫 구조 | `'menu.login'.tr()` (X) → `'로그인'.tr()` (O) |
+| ko/en 양쪽 추가 | 번역 누락 방지를 위해 반드시 두 Map 모두에 키 추가 |
+| JSON 파일 불필요 | Dart 코드에서 직접 관리, 별도 에셋 파일 없음 |
+
+---
 
 ## 설치 및 설정
 
