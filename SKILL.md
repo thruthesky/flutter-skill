@@ -30,8 +30,8 @@ description: "본 스킬은 Flutter 프레임워크로 앱을 개발하는 데 �
 4. **라우팅 요청 시**: [Go Route 문서](./references/go_route.md) 참조
    - 키워드: 라우팅, 네비게이션, GoRouter, 페이지 이동
 
-5. **다국어 요청 시**: [i18n 문서](./references/i18n.md) 참조
-   - 키워드: 다국어, 번역, localization, i18n, arb
+5. **다국어 요청 시**: [Easy Localization 문서](./references/easy_localization.md) 참조
+   - 키워드: 다국어, 번역, localization, i18n, easy_localization, tr(), plural()
 
 6. **푸시 알림/FCM 요청 시**: [Firebase FCM 문서](./references/firebase/firebase-fcm.md) 참조
    - 키워드: 푸시 알림, FCM, Firebase Messaging, 알림, notification, 토큰, 구독
@@ -126,7 +126,7 @@ elevation: 0                                   // 플랫 디자인
 
 | 문서 | 내용 |
 |------|------|
-| [i18n.md](./references/i18n.md) | 다국어 지원, ARB 파일 관리 |
+| [easy_localization.md](./references/easy_localization.md) | easy_localization 패키지 기반 다국어 지원 (tr(), plural(), 성별, 코드 생성) |
 | [file-cache.md](./references/file-cache.md) | file_cache_flutter 패키지, 메모리+파일 이중 캐싱, TTL |
 | [memory-cache.md](./references/memory-cache.md) | LRU 메모리 캐시 서비스 (MemoryCache 클래스) |
 
